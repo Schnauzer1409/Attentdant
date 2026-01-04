@@ -1,6 +1,6 @@
-# ===============================
-# IMPORT THƯ VIỆN
-# ===============================
+
+
+
 from watermark_feature import train_watermark, verify_watermark
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import FileResponse
@@ -25,9 +25,9 @@ from PIL import Image
 from insightface.app import FaceAnalysis
 
 
-# ===============================
-# KHAI BÁO THƯ MỤC
-# ===============================
+
+
+
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env.dev")
 
@@ -36,9 +36,9 @@ WATERMARK_THRESHOLD = float(
 )
 
 SAVE_DIR = BASE_DIR / os.getenv("UPLOAD_DIR", "uploads")
-ENROLL_DIR = SAVE_DIR / os.getenv("ENROLL_DIR", "enroll")        # ảnh đăng ký khuôn mặt
-ATT_DIR = SAVE_DIR / os.getenv("ATTENDANCE_DIR", "attendance")       # ảnh điểm danh
-WM_DIR = BASE_DIR / os.getenv("WATERMARK_DIR", "watermarks")        # ảnh watermark phòng
+ENROLL_DIR = SAVE_DIR / os.getenv("ENROLL_DIR", "enroll")       
+ATT_DIR = SAVE_DIR / os.getenv("ATTENDANCE_DIR", "attendance")       
+WM_DIR = BASE_DIR / os.getenv("WATERMARK_DIR", "watermarks")        
 
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
 ENROLL_DIR.mkdir(parents=True, exist_ok=True)
@@ -46,25 +46,25 @@ ATT_DIR.mkdir(parents=True, exist_ok=True)
 WM_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ===============================
-# KHỞI TẠO FASTAPI
-# ===============================
+
+
+
 app = FastAPI()
 
 FRONTEND_DIR = BASE_DIR.parent / "Frontend"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # test
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# ===============================
-# DATABASE SQLITE
-# ===============================
+
+
+
 DB_PATH = BASE_DIR / os.getenv("DB_PATH", "attendance.db")
 
 def get_conn():
@@ -80,7 +80,7 @@ def sql(query, params=()):
     return rows
 
 
-# Bảng user
+
 sql("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-# Bảng lưu embedding khuôn mặt
+
 sql("""
 CREATE TABLE IF NOT EXISTS encodings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,9 +101,9 @@ CREATE TABLE IF NOT EXISTS encodings (
 """)
 
 
-# ===============================
-# TẠO USER MẪU
-# ===============================
+
+
+
 def add_default_users():
     users = sql("SELECT username FROM users")
     existed = {u[0] for u in users}
@@ -129,9 +129,9 @@ def add_default_users():
 add_default_users()
 
 
-# ===============================
-# LOAD MODEL NHẬN DIỆN
-# ===============================
+
+
+
 face_app = FaceAnalysis(name=os.getenv("FACE_MODEL", "buffalo_l"))
 
 det_size = tuple(
@@ -144,25 +144,25 @@ face_app.prepare(
 )
 
 
-# ===============================
-# HÀM TIỆN ÍCH
-# ===============================
-# Chuyển base64 → numpy image
+
+
+
+
 def decode_base64_to_image(b64):
     header, data = b64.split(",", 1)
     img_bytes = base64.b64decode(data)
     return np.array(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
 
-# Tính độ giống cosine
+
 def cosine(a, b):
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 import cv2
 
 
 
-# ===============================
-# API LOGIN
-# ===============================
+
+
+
 @app.post("/api/login")
 def login(username: str = Form(...), password: str = Form(...)):
     user = sql(
@@ -189,30 +189,30 @@ def login(username: str = Form(...), password: str = Form(...)):
     }
 
 
-# ===============================
-# ENROLL KHUÔN MẶT (GIÁO VIÊN)
-# ===============================
+
+
+
 @app.post("/api/enroll")
 def enroll(username: str = Form(...), file: UploadFile = File(...)):
     img_bytes = file.file.read()
 
-    # Lưu ảnh
+    
     filename = f"{username}_{int(time.time())}.jpg"
     with open(ENROLL_DIR / filename, "wb") as f:
         f.write(img_bytes)
 
-    # Nhận diện mặt
+    
     img_np = np.array(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
     faces = face_app.get(img_np)
 
     if len(faces) == 0:
         return {"status": "no_face"}
 
-    # Lấy embedding
+    
     emb = faces[0].embedding
     emb_blob = pickle.dumps(emb)
 
-    # Lưu vào DB
+    
     sql(
         "INSERT INTO encodings(username,embedding) VALUES (?,?)",
         (username, emb_blob)
@@ -221,9 +221,9 @@ def enroll(username: str = Form(...), file: UploadFile = File(...)):
     return {"status": "ok", "msg": "Enroll thành công"}
 
 
-# ===============================
-# NHẬN DIỆN REALTIME
-# ===============================
+
+
+
 @app.post("/api/frame")
 def frame(img: str = Form(...)):
     img_np = decode_base64_to_image(img)
@@ -256,14 +256,14 @@ def frame(img: str = Form(...)):
     }
 
 
-# ===============================
-# API ĐIỂM DANH
-# ===============================
+
+
+
 @app.post("/api/attendance")
 def attendance(username: str = Form(...), file: UploadFile = File(...)):
-    # ======================
-    # 1. Đọc ảnh gửi lên
-    # ======================
+    
+    
+    
     img_bytes = file.file.read()
 
     filename = f"{username}_{int(time.time())}.jpg"
@@ -272,9 +272,9 @@ def attendance(username: str = Form(...), file: UploadFile = File(...)):
 
     img_np = np.array(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
 
-    # ======================
-    # 2. CHECK KHUÔN MẶT
-    # ======================
+    
+    
+    
     faces = face_app.get(img_np)
 
     if len(faces) == 0:
@@ -300,13 +300,13 @@ def attendance(username: str = Form(...), file: UploadFile = File(...)):
     if best_user != username:
         return {"status": "fail", "msg": "Sai người điểm danh"}
 
-    # ======================
-    # 3. CHECK WATERMARK (FEATURE MATCHING)
-    # ======================
-    # Chuyển từ RGB (PIL) sang BGR (OpenCV) trước khi verify
+    
+    
+    
+    
     img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
 
-# Gọi hàm verify từ watermark_feature.py
+
     is_valid, wm_score = verify_watermark(img_bgr) 
 
     if not is_valid:
@@ -316,26 +316,26 @@ def attendance(username: str = Form(...), file: UploadFile = File(...)):
         "msg": f"Watermark không khớp hoặc không đủ rõ (Score: {wm_score})"
     }
 
-    # ======================
-    # 4. THÀNH CÔNG
-    # ======================
+    
+    
+    
     return {
         "status": "success",
         "msg": f"Điểm danh thành công cho {username}"
     }
 
-# ===============================
-# XÓA TOÀN BỘ ENCODING
-# ===============================
+
+
+
 @app.get("/api/clear_encodings")
 def clear_encodings():
     sql("DELETE FROM encodings")
     return {"status": "ok"}
 
 
-# ===============================
-# WATERMARK (ẢNH PHÒNG)
-# ===============================
+
+
+
 @app.post("/api/teacher_generate_watermark")
 def generate_watermark(file: UploadFile = File(...)):
     import cv2
@@ -360,10 +360,10 @@ def generate_watermark(file: UploadFile = File(...)):
 
     crop = img[by:by+wm_size, bx:bx+wm_size]
 
-    # Lưu watermark tạm
+    
     Image.fromarray(crop).save(WM_DIR / "temp_watermark.jpg")
 
-    # Trả về base64 để frontend hiển thị
+    
     buf = io.BytesIO()
     Image.fromarray(crop).save(buf, format="JPEG")
     b64 = base64.b64encode(buf.getvalue()).decode()
@@ -372,16 +372,16 @@ def generate_watermark(file: UploadFile = File(...)):
         "status": "ok",
         "watermark": b64
     }
-# ===============================
-# TRAIN WATERMARK (GIÁO VIÊN)
-# ===============================
+
+
+
 @app.post("/api/train_watermark")
 async def train_watermark_api(files: list[UploadFile] = File(...)):
     images = []
     for file in files:
         contents = await file.read()
         nparr = np.frombuffer(contents, np.uint8)
-        # Đọc trực tiếp ra dạng BGR để train cho chuẩn
+        
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img is not None:
             images.append(img)
@@ -390,14 +390,14 @@ async def train_watermark_api(files: list[UploadFile] = File(...)):
         return {"status": "error", "msg": "Không nhận được ảnh nào"}
 
     try:
-        # Gọi hàm train đã có trong watermark_feature.py
+        
         result = train_watermark(images)
         return result
     except Exception as e:
         return {"status": "error", "msg": str(e)}
-# ===============================
-# SET WATERMARK (ACTIVE)
-# ===============================
+
+
+
 @app.post("/api/set_watermark")
 def set_watermark():
     """
@@ -413,7 +413,7 @@ def set_watermark():
             "msg": "Chưa upload watermark"
         }
 
-    # Copy / overwrite
+    
     Image.open(src).save(dst)
 
     return {
@@ -421,34 +421,34 @@ def set_watermark():
         "msg": "Đã set watermark cho phòng học"
     }
 
-# ===============================
-# UPLOAD WATERMARK (GIÁO VIÊN)
-# ===============================
-# @app.post("/api/upload_watermark")
-# def upload_watermark(file: UploadFile = File(...)):
-#     """
-#     Upload watermark phòng học chính thức
-#     """
 
-#     try:
-#         img_bytes = file.file.read()
-#         img = np.array(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
 
-#         # Lưu watermark cố định
-#         wm_path = WM_DIR / "room_watermark.jpg"
-#         Image.fromarray(img).save(wm_path)
 
-#         return {
-#             "status": "ok",
-#             "msg": "Upload watermark thành công",
-#             "path": str(wm_path)
-#         }
 
-#     except Exception as e:
-#         return {
-#             "status": "error",
-#             "msg": str(e)
-#         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @app.post("/api/upload_watermark")
 def upload_watermark(file: UploadFile = File(...)):
     """
